@@ -1,0 +1,129 @@
+# /etc/nginx/sites-available/gate-web
+#
+# KEY CHANGES from old config:
+#  1. /heartbeat added to HTTP block  ← this was why heartbeat was broken
+#  2. Removed auth_basic              ← auth is now handled by Flask
+#  3. Added /events location          ← SSE needs proxy_buffering off
+#  4. Added Tailscale subnet          ← 100.64.0.0/10 allowed on ingest/heartbeat
+#
+# Tailscale note:
+#   If using Tailscale VPN (tailscaled is already in your systemd After=),
+#   update SERVER_INGEST_URL on the Pi to your server's Tailscale IP or hostname.
+#   Example: SERVER_INGEST_URL=https://100.x.x.x/ingest
+#   Or enable MagicDNS and use:  SERVER_INGEST_URL=https://gateserver/ingest
+
+# ── HTTP: redirect everything except Pi endpoints ─────────────────────────────
+server {
+    listen 80;
+    server_name _;
+
+    # Pi camera — send frames over plain HTTP (Pi Zero saves CPU on TLS)
+    location /ingest {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_set_header   X-Real-IP $remote_addr;
+        client_max_body_size 5M;
+	proxy_read_timeout 90s;
+	proxy_send_timeout 90s;
+    }
+
+    # Pi heartbeat — MUST be here, or it gets 301'd and fails silently
+    location /heartbeat {
+        proxy_pass       http://127.0.0.1:8000;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /events {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+    proxy_http_version 1.1;
+    chunked_transfer_encoding on;
+    }
+
+    # Everything else → HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ── HTTPS ─────────────────────────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    server_name _;
+
+    ssl_certificate     /etc/ssl/certs/gate-web.crt;
+    ssl_certificate_key /etc/ssl/private/gate-web.key;
+
+    # Recommended SSL settings
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # ── Pi endpoints (restricted to LAN + Tailscale subnets) ──────────────
+    location /ingest {
+        allow 10.0.0.0/8;
+        allow 192.168.0.0/16;
+        allow 172.16.0.0/12;
+        allow 100.64.0.0/10;     # Tailscale CGNAT range
+        allow 127.0.0.1;
+        deny all;
+
+        proxy_pass           http://127.0.0.1:8000;
+        proxy_set_header     Host       $host;
+        proxy_set_header     X-Real-IP  $remote_addr;
+	proxy_read_timeout 60s;
+	proxy_send_timeout 60s;
+        client_max_body_size 5M;
+    }
+
+    location /heartbeat {
+        allow 10.0.0.0/8;
+        allow 192.168.0.0/16;
+        allow 172.16.0.0/12;
+        allow 100.64.0.0/10;
+        allow 127.0.0.1;
+        deny all;
+
+        proxy_pass       http://127.0.0.1:8000;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # ── SSE: real-time dashboard updates ──────────────────────────────────
+    # Buffering must be off or the browser never receives events
+    location /events {
+        proxy_pass            http://127.0.0.1:8000;
+        proxy_set_header      Host       $host;
+        proxy_set_header      X-Real-IP  $remote_addr;
+
+        proxy_http_version    1.1;
+        proxy_set_header      Connection "";
+        proxy_buffering       off;
+        proxy_cache           off;
+        chunked_transfer_encoding on;
+
+        # Keep the SSE connection alive
+        proxy_read_timeout    3600s;
+    }
+
+    # ── Static files ──────────────────────────────────────────────────────
+    location /static/ {
+        alias /home/thedoctor/Final_Gate_Web/static/;
+        include /etc/nginx/mime.types;
+        try_files $uri =404;
+        expires 1h;
+    }
+
+  
+    # ── Everything else → Flask (auth handled by Flask-Login now) ─────────
+    location / {
+        proxy_pass       http://127.0.0.1:8000;
+        proxy_set_header Host       $host;
+        proxy_set_header X-Real-IP  $remote_addr;
+
+        # Reasonable timeouts for an old server
+        proxy_connect_timeout 10s;
+        proxy_read_timeout    30s;
+    }
+}
