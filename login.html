@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bejelentkezés — Gate Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page">
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo">🚧</div>
+            <h1 class="login-title">Gate Monitor</h1>
+            <p class="login-sub">Azonosítsd magad a folytatáshoz</p>
+        </div>
+
+        {% for cat, msg in get_flashed_messages(with_categories=true) %}
+        <div class="alert alert-{{ cat }}" style="margin-bottom:1rem;">{{ msg }}</div>
+        {% endfor %}
+
+        <form method="post" autocomplete="off">
+            <div class="field">
+                <label for="username">Felhasználónév</label>
+                <input id="username" type="text" name="username"
+                       placeholder="admin" required autofocus>
+            </div>
+            <div class="field">
+                <label for="password">Jelszó</label>
+                <input id="password" type="password" name="password"
+                       placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" style="margin-top:0.5rem;padding:0.65rem;">
+                Bejelentkezés →
+            </button>
+        </form>
+
+        <p style="text-align:center;margin-top:1.5rem;font-size:0.75rem;color:var(--text-dim);font-family:var(--font-mono);">
+            MIKROSZÁMÍTÓGÉPPEL VEZÉRELT RENDSZER
+        </p>
+    </div>
+</div>
+</body>
+</html>
