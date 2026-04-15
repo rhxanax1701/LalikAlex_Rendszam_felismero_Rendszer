@@ -78,7 +78,7 @@ IDLE → (mozgás észlelve) → ACTIVE → (autó megállt) → PARKED → (1.5
 ### 1. Klónozás és virtuális környezet
 
 ```bash
-git clone https://github.com/FELHASZNÁLÓNÉV/gate-system.git
+git clone https://github.com/rhxanax1701/LalikAlex_Rendszam_felismero_Rendszer.git
 cd gate-system/server
 
 python3 -m venv venv
