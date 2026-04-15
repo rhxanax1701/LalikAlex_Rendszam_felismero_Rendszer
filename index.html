@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kapunyitó figyelő</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-brand">
+        <div class="brand-icon">🚧</div>
+        <span>Gate Monitor</span>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-user">
+            <span class="topbar-uname">{{ current_user.username }}</span>
+            <span class="badge badge-{{ current_user.role }}">{{ current_user.role }}</span>
+        </div>
+        {% if current_user.is_admin %}
+        <button class="btn btn-sm btn-ghost" onclick="openPwModal()">🔑</button>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-ghost">Kilépés</a>
+    </div>
+</header>
+
+<main class="container">
+
+    {% if warn_pw %}
+    <div class="alert alert-warning" style="margin-bottom:1.25rem;">
+        ⚠️ Alapértelmezett jelszó aktív!
+        <button class="btn btn-sm" style="margin-left:auto;" onclick="openPwModal()">Módosítás</button>
+    </div>
+    {% endif %}
+
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ cat }}" style="margin-bottom:1rem;">{{ msg }}</div>
+    {% endfor %}
+
+    <!-- Camera error banners -->
+    <div id="cam-banner" class="cam-banner cam-error" style="display:none;">
+        ⚠ KAMERA HIBA — NINCS KAPCSOLAT
+    </div>
+    <div id="cam-recovered" class="cam-banner cam-warn" style="display:none;">
+        ↻ Kamera visszaállt — Várakozás mozgásra…
+    </div>
+
+    <!-- Main plate card -->
+    <div class="plate-card state-{{ status|lower }}" id="plate-card">
+        <div class="plate-label">Utolsó rendszám</div>
+        <div id="plate-number" class="plate-number">{{ last_plate }}</div>
+        <div id="plate-status" class="plate-status status-{{ status|lower }}">
+            {% if status == "ALLOWED" %}✓ ENGEDÉLYEZVE{% else %}✕ ELUTASÍTVA{% endif %}
+        </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+        <div class="cam-indicator">
+            <span id="cam-dot" class="cam-dot cam-dot-ok"></span>
+            <span id="cam-text">Kamera OK</span>
+        </div>
+        <span id="last-update" class="last-update">Csatlakozás…</span>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-actions">
+        <a href="{{ url_for('plates') }}" class="action-card">
+            <span class="action-icon">📋</span>
+            <div>
+                <div style="color:var(--text);font-size:0.85rem;">Rendszámok</div>
+                <div style="font-size:0.75rem;">Engedélyezett lista</div>
+            </div>
+        </a>
+        {% if current_user.is_admin %}
+        <button class="action-card" onclick="openPwModal()" style="border:none;cursor:pointer;text-align:left;">
+            <span class="action-icon">🔑</span>
+            <div>
+                <div style="color:var(--text);font-size:0.85rem;">Jelszó módosítás</div>
+                <div style="font-size:0.75rem;">Fiók beállítások</div>
+            </div>
+        </button>
+        {% endif %}
+    </div>
+
+</main>
+
+<!-- Password modal -->
+{% if current_user.is_admin %}
+<div id="pw-modal" class="modal-bg" style="display:none;" onclick="closePwModal(event)">
+    <div class="modal-card">
+        <h2 class="modal-title">🔑 Jelszó módosítása</h2>
+        <form method="post" action="{{ url_for('change_password') }}">
+            <div class="field">
+                <label>Jelenlegi jelszó</label>
+                <input type="password" name="current_password" required autofocus>
+            </div>
+            <div class="field">
+                <label>Új jelszó <span style="font-weight:400;color:var(--text-dim)">(min. 6 karakter)</span></label>
+                <input type="password" name="new_password" required minlength="6">
+            </div>
+            <div class="field">
+                <label>Megerősítés</label>
+                <input type="password" name="confirm_password" required minlength="6">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" onclick="closePwModal()">Mégse</button>
+                <button type="submit" class="btn btn-primary">Mentés</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+const plateEl    = document.getElementById("plate-number");
+const statusEl   = document.getElementById("plate-status");
+const cardEl     = document.getElementById("plate-card");
+const camBanner  = document.getElementById("cam-banner");
+const camRecov   = document.getElementById("cam-recovered");
+const camDot     = document.getElementById("cam-dot");
+const camText    = document.getElementById("cam-text");
+const lastUpdate = document.getElementById("last-update");
+
+function applyState(data) {
+    // Animate plate change
+    if (plateEl.textContent !== data.plate) {
+        plateEl.classList.remove("animating");
+        void plateEl.offsetWidth;
+        plateEl.textContent = data.plate;
+        plateEl.classList.add("animating");
+    }
+
+    const isAllowed = data.status === "ALLOWED";
+    statusEl.textContent = isAllowed ? "✓ ENGEDÉLYEZVE" : "✕ ELUTASÍTVA";
+    statusEl.className   = "plate-status status-" + data.status.toLowerCase();
+    cardEl.className     = "plate-card state-" + data.status.toLowerCase();
+
+    if (data.camera_error) {
+        camBanner.style.display = "block";
+        camRecov.style.display  = "none";
+        camDot.className        = "cam-dot cam-dot-error";
+        camText.textContent     = "Kamera hiba";
+    } else if (data.camera_recovered) {
+        camBanner.style.display = "none";
+        camRecov.style.display  = "block";
+        camDot.className        = "cam-dot cam-dot-warn";
+        camText.textContent     = "Kamera visszaállt";
+    } else {
+        camBanner.style.display = "none";
+        camRecov.style.display  = "none";
+        camDot.className        = "cam-dot cam-dot-ok";
+        camText.textContent     = "Kamera OK";
+    }
+
+    lastUpdate.textContent = new Date().toLocaleTimeString("hu-HU");
+}
+
+function startSSE() {
+    const es = new EventSource("/events");
+    es.onmessage = (e) => {
+        try { applyState(JSON.parse(e.data)); }
+        catch (err) { console.warn("SSE parse error", err); }
+    };
+    es.onerror = () => {
+        camDot.className    = "cam-dot cam-dot-error";
+        camText.textContent = "Kapcsolat megszakadt…";
+    };
+}
+startSSE();
+
+function openPwModal()  { document.getElementById("pw-modal").style.display = "flex"; }
+function closePwModal(e) {
+    if (!e || e.target === document.getElementById("pw-modal"))
+        document.getElementById("pw-modal").style.display = "none";
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePwModal(); });
+{% if warn_pw %}setTimeout(openPwModal, 800);{% endif %}
+</script>
+</body>
+</html>
