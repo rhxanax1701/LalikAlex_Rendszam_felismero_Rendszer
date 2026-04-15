@@ -1,0 +1,60 @@
+[Unit]
+Description=Gate Camera Motion Sender (Pi → Server)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=thedoctor
+Group=thedoctor
+WorkingDirectory=/home/thedoctor/gate_cam
+Environment="PATH=/home/thedoctor/gate_cam/venv/bin"
+
+# ── Server URL — update IP if it changes! ─────────────────────────────────────
+Environment="SERVER_INGEST_URL=http://172.16.0.132/ingest"
+# Tailscale (set this when ready, no more IP chasing):
+# Environment="SERVER_INGEST_URL=https://gateserver/ingest"
+
+# ── Discord debug (optional) ───────────────────────────────────────────────────
+# Environment="DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN"
+
+# ── Camera ─────────────────────────────────────────────────────────────────────
+Environment="CAMERA_DEVICE=/dev/video0"
+Environment="CAPTURE_WIDTH=320"
+Environment="CAPTURE_HEIGHT=240"
+Environment="CAPTURE_FPS=15"
+
+# ── Timeouts (IMPORTANT — split connect vs read) ───────────────────────────────
+# connect: fail fast (3s) if server unreachable — don't block sender thread
+# read: give ALPR on slow CPU time to finish (25s)
+Environment="CONNECT_TIMEOUT=3.0"
+Environment="READ_TIMEOUT=25.0"
+
+# ── Park-and-shoot ─────────────────────────────────────────────────────────────
+Environment="PARK_WAIT_SEC=1.5"
+Environment="PARK_BURST_COUNT=3"
+Environment="PARK_BURST_INTERVAL=0.5"
+Environment="PARK_JPEG_QUALITY=88"
+
+# ── Motion ─────────────────────────────────────────────────────────────────────
+Environment="MOTION_FRAMES_REQUIRED=3"
+Environment="MOTION_GONE_FRAMES=8"
+Environment="MOTION_MIN_AREA=500"
+
+# ── Fallback + cooldown ────────────────────────────────────────────────────────
+Environment="ACTIVE_TIMEOUT_SEC=8.0"
+Environment="ACTIVE_BURST_COUNT=2"
+Environment="COOLDOWN_SECONDS=12.0"
+
+# ── Watchdog ───────────────────────────────────────────────────────────────────
+Environment="HEARTBEAT_INTERVAL=5.0"
+Environment="REBOOT_AFTER_SEC=60.0"
+
+ExecStart=/home/thedoctor/gate_cam/venv/bin/python /home/thedoctor/gate_cam/pi_cam_sender.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
