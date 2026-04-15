@@ -179,7 +179,7 @@ Nyisd meg a böngészőben: `https://SZERVER_IP`
 ### 1. Klónozás és virtuális környezet
 
 ```bash
-git clone https://github.com/FELHASZNÁLÓNÉV/gate-system.git
+git clone https://github.com/rhxanax1701/LalikAlex_Rendszam_felismero_Rendszer.git
 cd gate-system/pi
 
 python3 -m venv venv
@@ -307,10 +307,6 @@ Többé nem kell IP-t változtatni.
 
 ---
 
-## 📄 Licenc
-
-MIT — szabadon felhasználható, módosítható, terjeszthető.
-
 ---
 
-*Szakdolgozat projekt — 2025*
+*Infoprog projekt — 2026*
