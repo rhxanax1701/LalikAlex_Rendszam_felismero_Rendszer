@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rendszámok — Gate Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-brand">
+        <div class="brand-icon">🚧</div>
+        <span>Gate Monitor</span>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-user">
+            <span class="topbar-uname">{{ current_user.username }}</span>
+            <span class="badge badge-{{ current_user.role }}">{{ current_user.role }}</span>
+        </div>
+        <a href="{{ url_for('index') }}" class="btn btn-sm">← Vissza</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-ghost">Kilépés</a>
+    </div>
+</header>
+
+<main class="container">
+
+    <div class="page-header">
+        <h2 class="page-title">Engedélyezett rendszámok</h2>
+        <span class="page-count">{{ plates|length }} db</span>
+    </div>
+
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ cat }}" style="margin-bottom:1rem;">{{ msg }}</div>
+    {% endfor %}
+
+    {% if current_user.is_admin %}
+    <div class="add-card">
+        <form method="post" class="add-form">
+            <input type="text"
+                   name="plate"
+                   id="plate-input"
+                   placeholder="pl. BA123AB"
+                   maxlength="10"
+                   pattern="[A-Za-z0-9]+"
+                   title="Csak betűk és számok"
+                   required
+                   autocomplete="off">
+            <button type="submit" class="btn btn-primary">+ Hozzáadás</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="alert alert-info" style="margin-bottom:1.25rem;">
+        ℹ Megtekintési mód — szerkesztéshez admin jogosultság szükséges.
+    </div>
+    {% endif %}
+
+    {% if plates %}
+    <div class="plates-list">
+        {% for plate in plates %}
+        <div class="plate-row">
+            <span class="plate-chip">{{ plate }}</span>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('delete_plate', plate=plate) }}"
+               class="btn btn-sm btn-danger"
+               onclick="return confirm('Töröljük: {{ plate }}?')">Törlés</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        Még nincs engedélyezett rendszám.
+        {% if current_user.is_admin %}<br>Adj hozzá egyet fent.{% endif %}
+    </div>
+    {% endif %}
+
+</main>
+
+<script>
+const inp = document.getElementById("plate-input");
+if (inp) inp.addEventListener("input", () => { inp.value = inp.value.toUpperCase(); });
+</script>
+</body>
+</html>
