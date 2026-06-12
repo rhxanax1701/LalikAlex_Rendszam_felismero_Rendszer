@@ -1,39 +1,39 @@
-# 🚗 Mikroszámítógép-vezérelt Rendszámfelismerő Kapunyitó Rendszer
+# 🚗 Microcomputer-Controlled License Plate Recognition Gate System
 
-> Automatikus rendszámfelismerés Raspberry Pi + AI alapon, olcsó hardverrel.
+> Automatic license plate recognition based on Raspberry Pi + AI, using cheap hardware.
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.x-green)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-red)
-![License](https://img.shields.io/badge/Licenc-MIT-yellow)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
-## 📁 Fájlstruktúra
+## 📁 File Structure
 
 ```
 gate-system/
 │
-├── server/                          # Szerveroldali kód (Linux PC / laptop)
-│   ├── app.py                       # Flask alkalmazás — API, ALPR, auth
-│   ├── plates.db                    # SQLite adatbázis (auto-létrejön)
+├── server/                          # Server-side code (Linux PC / laptop)
+│   ├── app.py                       # Flask application — API, ALPR, auth
+│   ├── plates.db                    # SQLite database (auto-created)
 │   │
 │   ├── templates/
-│   │   ├── index.html               # Főoldal — valós idejű műszerfal
-│   │   ├── plates.html              # Rendszámkezelő oldal
-│   │   └── login.html               # Bejelentkezési oldal
+│   │   ├── index.html               # Home page — real-time dashboard
+│   │   ├── plates.html              # License plate management page
+│   │   └── login.html               # Login page
 │   │
 │   ├── static/
-│   │   └── style.css                # Sötét témájú CSS
+│   │   └── style.css                # Dark theme CSS
 │   │
-│   └── nginx_gate-web               # nginx konfiguráció (másolandó)
+│   └── nginx_gate-web               # nginx configuration (to be copied)
 │
-├── pi/                              # Raspberry Pi oldali kód
-│   ├── pi_cam_sender.py             # Kamera + mozgásérzékelés + küldő
-│   └── gate-cam.service             # systemd service fájl
+├── pi/                              # Raspberry Pi side code
+│   ├── pi_cam_sender.py             # Camera + motion detection + sender
+│   └── gate-cam.service             # systemd service file
 │
 ├── docs/
-│   └── diagram.png                  # Rendszer architektúra diagram
+│   └── diagram.png                  # System architecture diagram
 │
 ├── .gitignore
 └── README.md
@@ -41,41 +41,41 @@ gate-system/
 
 ---
 
-## ⚙️ Hogyan működik
+## ⚙️ How It Works
 
 ```
 ┌─────────────────────┐        HTTP POST        ┌──────────────────────────┐
-│   Raspberry Pi       │ ──── kép küldése ────► │   Szerver (Linux PC)     │
+│   Raspberry Pi       │ ──── send image ─────► │   Server (Linux PC)      │
 │                      │                         │                          │
-│  EyeToy kamera       │ ◄─── heartbeat ──────── │   Flask + Gunicorn       │
-│  MOG2 mozgásészlelés │                         │   ALPR (AI modell)       │
-│  Állapotgép          │                         │   SQLite adatbázis       │
+│  EyeToy camera       │ ◄─── heartbeat ──────── │   Flask + Gunicorn       │
+│  MOG2 motion detect  │                         │   ALPR (AI model)        │
+│  State machine       │                         │   SQLite database        │
 │  Discord webhook     │                         │   nginx + HTTPS          │
 └─────────────────────┘                         └──────────────┬───────────┘
                                                                │
-                                                    SSE (valós idő)
+                                                    SSE (real-time)
                                                                │
                                                  ┌─────────────▼───────────┐
-                                                 │   Böngésző / Weboldal   │
-                                                 │   admin / viewer fiók   │
+                                                 │   Browser / Website     │
+                                                 │   admin / viewer account│
                                                  └─────────────────────────┘
 ```
 
-**Állapotgép (Pi):**
+**State Machine (Pi):**
 ```
-IDLE → (mozgás észlelve) → ACTIVE → (autó megállt) → PARKED → (1.5s várakozás) → KÉPKÜLDÉS → COOLDOWN → IDLE
+IDLE → (motion detected) → ACTIVE → (car stopped) → PARKED → (1.5s wait) → SEND IMAGE → COOLDOWN → IDLE
 ```
 
 ---
 
-## 🖥️ Szerver telepítése
+## 🖥️ Server Setup
 
-### Követelmények
-- Linux (Ubuntu 22.04+ ajánlott)
+### Requirements
+- Linux (Ubuntu 22.04+ recommended)
 - Python 3.9+
 - nginx
 
-### 1. Klónozás és virtuális környezet
+### 1. Clone and create virtual environment
 
 ```bash
 git clone https://github.com/rhxanax1701/LalikAlex_Rendszam_felismero_Rendszer.git
@@ -85,37 +85,37 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 2. Python csomagok telepítése
+### 2. Install Python packages
 
 ```bash
 pip install flask flask-login gunicorn opencv-python-headless fast-alpr numpy
 ```
 
-### 3. Titkos kulcs beállítása
+### 3. Set the secret key
 
-Nyisd meg az `app.py` fájlt és cseréld le ezt a sort:
+Open the `app.py` file and replace this line:
 
 ```python
 app.secret_key = "CHANGE_THIS_TO_A_RANDOM_STRING_BEFORE_PRODUCTION"
 ```
 
-Generálj egyet:
+Generate one:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### 4. nginx konfiguráció
+### 4. nginx configuration
 
 ```bash
 sudo cp nginx_gate-web /etc/nginx/sites-available/gate-web
 sudo ln -s /etc/nginx/sites-available/gate-web /etc/nginx/sites-enabled/gate-web
-sudo rm /etc/nginx/sites-enabled/default   # opcionális
+sudo rm /etc/nginx/sites-enabled/default   # optional
 
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 5. HTTPS tanúsítvány (önaláírt, LAN-ra)
+### 5. HTTPS certificate (self-signed, for LAN)
 
 ```bash
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -124,7 +124,7 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -subj "/CN=gateserver"
 ```
 
-### 6. systemd service létrehozása
+### 6. Create systemd service
 
 ```bash
 sudo nano /etc/systemd/system/gate-web.service
@@ -156,27 +156,27 @@ sudo systemctl enable gate-web
 sudo systemctl start gate-web
 ```
 
-### 7. Első bejelentkezés
+### 7. First login
 
-Nyisd meg a böngészőben: `https://SZERVER_IP`
+Open in browser: `https://SERVER_IP`
 
-| Felhasználó | Jelszó | Jogosultság |
-|-------------|--------|-------------|
-| `admin`     | `admin` | Teljes hozzáférés |
-| `viewer`    | `viewer` | Csak megtekintés |
+| User    | Password | Permission       |
+|---------|----------|-------------------|
+| `admin`  | `admin`  | Full access       |
+| `viewer` | `viewer` | View-only access  |
 
-> ⚠️ **Változtasd meg a jelszavakat az első bejelentkezés után!** A rendszer figyelmeztet rá.
+> ⚠️ **Change the passwords after the first login!** The system will prompt you to do so.
 
 ---
 
-## 🍓 Raspberry Pi telepítése
+## 🍓 Raspberry Pi Setup
 
-### Követelmények
-- Raspberry Pi Zero 2W (vagy bármely Pi)
-- USB kamera (tesztelve: PS2 EyeToy)
-- Raspberry Pi OS Lite (64-bit ajánlott)
+### Requirements
+- Raspberry Pi Zero 2W (or any Pi)
+- USB camera (tested with: PS2 EyeToy)
+- Raspberry Pi OS Lite (64-bit recommended)
 
-### 1. Klónozás és virtuális környezet
+### 1. Clone and create virtual environment
 
 ```bash
 git clone https://github.com/rhxanax1701/LalikAlex_Rendszam_felismero_Rendszer.git
@@ -186,32 +186,32 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 2. Python csomagok telepítése
+### 2. Install Python packages
 
 ```bash
 pip install opencv-python requests urllib3
 ```
 
-### 3. v4l2 eszközök (kamera detektáláshoz)
+### 3. v4l2 utilities (for camera detection)
 
 ```bash
 sudo apt install v4l-utils -y
 ```
 
-### 4. systemd service telepítése
+### 4. Install systemd service
 
 ```bash
 sudo cp gate-cam.service /etc/systemd/system/gate-cam.service
 sudo nano /etc/systemd/system/gate-cam.service
 ```
 
-Módosítsd ezeket a sorokat:
+Modify these lines:
 
 ```ini
-Environment="SERVER_INGEST_URL=http://SZERVER_IP/ingest"
+Environment="SERVER_INGEST_URL=http://SERVER_IP/ingest"
 Environment="CAMERA_DEVICE=/dev/video0"
 
-# Discord értesítéshez (opcionális):
+# For Discord notifications (optional):
 # Environment="DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/..."
 ```
 
@@ -221,13 +221,13 @@ sudo systemctl enable gate-cam
 sudo systemctl start gate-cam
 ```
 
-### 5. Ellenőrzés
+### 5. Verification
 
 ```bash
 journalctl -u gate-cam -f
 ```
 
-Helyes működés esetén ezt kell látnod:
+If working correctly, you should see:
 
 ```
 10:25:01 [INFO] gate-cam — gate-cam starting  ingest=http://192.168.x.x/ingest
@@ -237,76 +237,75 @@ Helyes működés esetén ezt kell látnod:
 
 ---
 
-## 🔔 Discord debug beállítása (opcionális)
+## 🔔 Discord Debug Setup (optional)
 
-1. Discord → csatorna ⚙️ → **Integrations** → **Webhooks** → **New Webhook**
-2. Kattints: **Copy URL**
-3. Illeszd be a service fájlba:
+1. Discord → channel ⚙️ → **Integrations** → **Webhooks** → **New Webhook**
+2. Click: **Copy URL**
+3. Paste it into the service file:
 
 ```ini
 Environment="DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXXXXXX/XXXXXXX"
 ```
 
-Ezután minden parkoló autóról kapsz képet és ALPR eredményt a Discordon:
+After this, you'll receive an image and ALPR result on Discord for every parked car:
 
 ```
 10:25:03  🚗 Park shot (ALPR target)
-          [kép]
+          [image]
 10:25:18  ✅ AA795PB → ALLOWED (votes: 2)
 ```
 
 ---
 
-## 🌐 Tailscale VPN (fix IP helyett — ajánlott)
+## 🌐 Tailscale VPN (recommended instead of a fixed IP)
 
-Ha nincs statikus IP a hálózaton:
+If you don't have a static IP on your network:
 
 ```bash
-# Szerveren ÉS a Pi-n:
+# On BOTH the server AND the Pi:
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 
-# Szerveren:
-tailscale status   # jegyezd fel a hostnamet, pl. "gateserver"
+# On the server:
+tailscale status   # note the hostname, e.g. "gateserver"
 ```
 
-Ezután a Pi service fájlban:
+Then in the Pi's service file:
 
 ```ini
 Environment="SERVER_INGEST_URL=http://gateserver/ingest"
 ```
 
-Többé nem kell IP-t változtatni.
+You'll never need to change the IP again.
 
 ---
 
-## 🔧 Hangolható paraméterek
+## 🔧 Tunable Parameters
 
-| Paraméter | Alapértelmezett | Leírás |
-|-----------|----------------|--------|
-| `PARK_WAIT_SEC` | `1.5` | Várakozás megállás után a képküldés előtt |
-| `PARK_BURST_COUNT` | `3` | Hány képet küld parkoláskor |
-| `COOLDOWN_SECONDS` | `12.0` | Várakozás következő autóig |
-| `MOTION_MIN_AREA` | `500` | Minimális mozgási terület (pixelben) |
-| `CONNECT_TIMEOUT` | `3.0` | Kapcsolódási timeout (másodperc) |
-| `READ_TIMEOUT` | `25.0` | Olvasási timeout — ALPR feldolgozáshoz |
-| `MIN_PLATE_CONF` | `0.80` | Minimum AI bizonyossági küszöb |
-| `VOTES_REQUIRED` | `2` | Hány egyező olvasat kell a rögzítéshez |
-
----
-
-## 🛠️ Hibakeresés
-
-| Tünet | Ok | Megoldás |
-|-------|----|----------|
-| „Kamera hiba" a weboldalon | Szerver nem kapja a heartbeat-et | Ellenőrizd az IP-t a service fájlban |
-| 504 Gateway Timeout | Gunicorn lassan dolgozza fel | Növeld a `--timeout` értéket |
-| Rendszám nem ismerhető fel | Kép elmosódott vagy rossz szög | Növeld a `PARK_WAIT_SEC` értéket |
-| Kamera nem nyílik meg | Rossz device path | Futtasd: `ls /dev/video*` |
-| Import hiba indításkor | Hiányzó Python csomag | Futtasd újra a `pip install` parancsot |
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `PARK_WAIT_SEC` | `1.5` | Wait time after stopping before sending the image |
+| `PARK_BURST_COUNT` | `3` | Number of images sent when parking |
+| `COOLDOWN_SECONDS` | `12.0` | Wait time until the next car |
+| `MOTION_MIN_AREA` | `500` | Minimum motion area (in pixels) |
+| `CONNECT_TIMEOUT` | `3.0` | Connection timeout (seconds) |
+| `READ_TIMEOUT` | `25.0` | Read timeout — for ALPR processing |
+| `MIN_PLATE_CONF` | `0.80` | Minimum AI confidence threshold |
+| `VOTES_REQUIRED` | `2` | Number of matching readings required to record |
 
 ---
 
+## 🛠️ Troubleshooting
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| "Camera error" on the website | Server isn't receiving the heartbeat | Check the IP in the service file |
+| 504 Gateway Timeout | Gunicorn processing too slowly | Increase the `--timeout` value |
+| License plate not recognized | Image blurry or bad angle | Increase the `PARK_WAIT_SEC` value |
+| Camera won't open | Wrong device path | Run: `ls /dev/video*` |
+| Import error on startup | Missing Python package | Re-run the `pip install` command |
+
 ---
 
-*Infoprog projekt — 2026*
+---
+
